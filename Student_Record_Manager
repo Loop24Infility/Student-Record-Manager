@@ -1,0 +1,262 @@
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <string>
+#include <iomanip>
+#include <algorithm>
+
+using namespace std;
+
+struct Student {
+    int roll;
+    string name;
+    float marks;
+};
+
+void addStudent();
+void displayStudents();
+void searchStudent();
+void deleteStudent();
+void updateStudent();
+void calculateAverage();
+void sortRecords();
+void exportToTextFile();
+bool authenticate();
+
+const string ADMIN_PASSWORD = "admin123";
+
+int main() {
+    if (!authenticate()) {
+        cout << "Access Denied.\n";
+        return 0;
+    }
+
+    int choice;
+    do {
+        cout << "\nStudent Record Management System\n";
+        cout << "1. Add Student\n2. Display Students\n3. Search Student\n";
+        cout << "4. Delete Student\n5. Update Student\n6. Calculate Average Marks\n";
+        cout << "7. Sort Records\n8. Export to Text File\n9. Exit\n";
+        cout << "Enter your choice: ";
+        cin >> choice;
+
+        switch (choice) {
+            case 1: addStudent(); break;
+            case 2: displayStudents(); break;
+            case 3: searchStudent(); break;
+            case 4: deleteStudent(); break;
+            case 5: updateStudent(); break;
+            case 6: calculateAverage(); break;
+            case 7: sortRecords(); break;
+            case 8: exportToTextFile(); break;
+            case 9: cout << "Exiting program.\n"; break;
+            default: cout << "Invalid choice. Try again.\n";
+        }
+    } while (choice != 9);
+
+    return 0;
+}
+
+bool authenticate() {
+    string password;
+    cout << "Enter Password: ";
+    cin >> password;
+    return password == ADMIN_PASSWORD;
+}
+
+void addStudent() {
+    ofstream file("students.dat", ios::binary | ios::app);
+    if (!file) {
+        cout << "Error opening file.\n";
+        return;
+    }
+
+    Student s;
+    cout << "Enter Roll Number, Name, and Marks: ";
+    cin >> s.roll;
+    cin.ignore();
+    getline(cin, s.name);
+    cin >> s.marks;
+
+    file.write(reinterpret_cast<char*>(&s), sizeof(Student));
+    file.close();
+    cout << "Student added successfully.\n";
+}
+
+void displayStudents() {
+    ifstream file("students.dat", ios::binary);
+    if (!file) {
+        cout << "Error opening file.\n";
+        return;
+    }
+
+    Student s;
+    cout << left << setw(10) << "Roll" << setw(20) << "Name" << setw(10) << "Marks\n";
+    cout << string(40, '-') << endl;
+    while (file.read(reinterpret_cast<char*>(&s), sizeof(Student))) {
+        cout << left << setw(10) << s.roll << setw(20) << s.name << setw(10) << s.marks << endl;
+    }
+    file.close();
+}
+
+void searchStudent() {
+    ifstream file("students.dat", ios::binary);
+    if (!file) {
+        cout << "Error opening file.\n";
+        return;
+    }
+
+    int roll;
+    cout << "Enter Roll Number to Search: ";
+    cin >> roll;
+
+    Student s;
+    bool found = false;
+    while (file.read(reinterpret_cast<char*>(&s), sizeof(Student))) {
+        if (s.roll == roll) {
+            cout << "Roll: " << s.roll << ", Name: " << s.name << ", Marks: " << s.marks << endl;
+            found = true;
+            break;
+        }
+    }
+    file.close();
+
+    if (!found) {
+        cout << "Student not found.\n";
+    }
+}
+
+void deleteStudent() {
+    ifstream file("students.dat", ios::binary);
+    ofstream tempFile("temp.dat", ios::binary);
+    if (!file || !tempFile) {
+        cout << "Error opening file.\n";
+        return;
+    }
+
+    int roll;
+    cout << "Enter Roll Number to Delete: ";
+    cin >> roll;
+
+    Student s;
+    bool found = false;
+    while (file.read(reinterpret_cast<char*>(&s), sizeof(Student))) {
+        if (s.roll == roll) {
+            found = true;
+        } else {
+            tempFile.write(reinterpret_cast<char*>(&s), sizeof(Student));
+        }
+    }
+
+    file.close();
+    tempFile.close();
+    remove("students.dat");
+    rename("temp.dat", "students.dat");
+
+    cout << (found ? "Student deleted successfully.\n" : "Student not found.\n");
+}
+
+void updateStudent() {
+    fstream file("students.dat", ios::binary | ios::in | ios::out);
+    if (!file) {
+        cout << "Error opening file.\n";
+        return;
+    }
+
+    int roll;
+    cout << "Enter Roll Number to Update: ";
+    cin >> roll;
+
+    Student s;
+    bool found = false;
+    while (file.read(reinterpret_cast<char*>(&s), sizeof(Student))) {
+        if (s.roll == roll) {
+            cout << "Enter New Name and Marks: ";
+            cin.ignore();
+            getline(cin, s.name);
+            cin >> s.marks;
+
+            file.seekp(-static_cast<int>(sizeof(Student)), ios::cur);
+            file.write(reinterpret_cast<char*>(&s), sizeof(Student));
+            cout << "Record updated successfully.\n";
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        cout << "Student not found.\n";
+    }
+
+    file.close();
+}
+
+void calculateAverage() {
+    ifstream file("students.dat", ios::binary);
+    if (!file) {
+        cout << "Error opening file.\n";
+        return;
+    }
+
+    Student s;
+    int count = 0;
+    float totalMarks = 0;
+
+    while (file.read(reinterpret_cast<char*>(&s), sizeof(Student))) {
+        totalMarks += s.marks;
+        count++;
+    }
+    file.close();
+
+    if (count == 0) {
+        cout << "No records found.\n";
+    } else {
+        cout << "Average Marks: " << totalMarks / count << endl;
+    }
+}
+
+void sortRecords() {
+    ifstream file("students.dat", ios::binary);
+    if (!file) {
+        cout << "Error opening file.\n";
+        return;
+    }
+
+    vector<Student> students;
+    Student s;
+    while (file.read(reinterpret_cast<char*>(&s), sizeof(Student))) {
+        students.push_back(s);
+    }
+    file.close();
+
+    sort(students.begin(), students.end(), [](const Student& a, const Student& b) {
+        return a.marks > b.marks;
+    });
+
+    cout << "Sorted Records:\n";
+    cout << left << setw(10) << "Roll" << setw(20) << "Name" << setw(10) << "Marks\n";
+    cout << string(40, '-') << endl;
+    for (const auto& student : students) {
+        cout << left << setw(10) << student.roll << setw(20) << student.name << setw(10) << student.marks << endl;
+    }
+}
+
+void exportToTextFile() {
+    ifstream file("students.dat", ios::binary);
+    ofstream textFile("students.txt");
+    if (!file || !textFile) {
+        cout << "Error opening file.\n";
+        return;
+    }
+
+    Student s;
+    textFile << left << setw(10) << "Roll" << setw(20) << "Name" << setw(10) << "Marks\n";
+    textFile << string(40, '-') << endl;
+    while (file.read(reinterpret_cast<char*>(&s), sizeof(Student))) {
+        textFile << left << setw(10) << s.roll << setw(20) << s.name << setw(10) << s.marks << endl;
+    }
+
+    file.close();
+    textFile.close();
+    cout << "Records exported to 'students.txt' successfully.\n";
+}
